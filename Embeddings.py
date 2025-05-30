@@ -1,99 +1,75 @@
-from sentence_transformers import SentenceTransformer
-import numpy as np
-import json
 import os
-import configparser # Import the configparser module
+import json
+import numpy as np
+import configparser
+import logging
+from sentence_transformers import SentenceTransformer
 
-# --- Step 0: Load Configuration ---
-config = configparser.ConfigParser()
-config_file_path = 'config.ini' # Define the name of your config file
+# --- Setup Logging ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(levelname)s] %(message)s'
+)
 
-try:
-    if not os.path.exists(config_file_path):
-        raise FileNotFoundError(f"Error: Configuration file '{config_file_path}' not found.")
-    config.read(config_file_path)
+# --- Utility Functions ---
+def load_config(config_path='config.ini'):
+    config = configparser.ConfigParser()
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Configuration file '{config_path}' not found.")
 
-    # Get values from the config file
-    json_file_path = config.get('Paths', 'json_file_path')
-    save_file_name = config.get('Paths', 'save_file_name')
-    embedding_model_name = config.get('Models', 'embedding_model_name')
+    config.read(config_path)
 
-    print("Configuration loaded successfully:")
-    print(f"  JSON file path: {json_file_path}")
-    print(f"  Save file name: {save_file_name}")
-    print(f"  Embedding model: {embedding_model_name}")
+    try:
+        json_path = config.get('Paths', 'json_file_path')
+        save_path = config.get('Paths', 'save_file_name')
+        model_name = config.get('Models', 'embedding_model_name')
+    except (configparser.NoSectionError, configparser.NoOptionError) as e:
+        raise ValueError(f"Error in config file: {e}")
 
-except FileNotFoundError as e:
-    print(e)
-    exit()
-except configparser.NoSectionError as e:
-    print(f"Error in config file: {e}. Ensure sections like [Paths] and [Models] exist.")
-    exit()
-except configparser.NoOptionError as e:
-    print(f"Error in config file: {e}. Ensure all required options are present.")
-    exit()
-except Exception as e:
-    print(f"An unexpected error occurred while loading the configuration: {e}")
-    exit()
+    logging.info("Configuration loaded successfully")
+    return json_path, save_path, model_name
 
 
-# --- Step 1: Prepare your commit messages from a JSON file ---
+def load_commit_messages(json_path):
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"JSON file '{json_path}' not found.")
 
-commit_messages = [] # Initialize an empty list to store messages
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
 
-try:
-    print(f"\nLoading commit messages from {json_file_path}...")
-    with open(json_file_path, 'r', encoding='utf-8') as f:
-        # Load the entire JSON content
-        commit_data = json.load(f)
+    if not isinstance(data, list) or not all(isinstance(entry, dict) and 'Message' in entry for entry in data):
+        raise ValueError("JSON data must be a list of objects with a 'Message' key.")
 
-    # Check if the loaded data is a list and if entries have the 'Message' key
-    if isinstance(commit_data, list) and all(isinstance(entry, dict) and 'Message' in entry for entry in commit_data):
-        # Extract the 'Message' from each dictionary in the list
-        commit_messages = [entry['Message'].replace("-", " ").lower() for entry in commit_data]
-        print(f"Successfully loaded {len(commit_messages)} commit messages.")
-    else:
-        print(f"Error: JSON data in {json_file_path} is not in the expected format (list of objects with 'Message' key).")
-        exit()
-
-except FileNotFoundError:
-    print(f"Error: The file {json_file_path} was not found. Please ensure the path is correct.")
-    exit()
-except json.JSONDecodeError:
-    print(f"Error: Could not decode JSON from {json_file_path}. Please check the file format.")
-    exit()
-except Exception as e:
-    print(f"An unexpected error occurred while loading messages: {e}")
-    exit()
-
-if not commit_messages:
-    print("No commit messages were loaded. Please check your JSON file and the loading logic.")
-    exit()
+    messages = [entry['Message'].replace('-', ' ').lower() for entry in data]
+    logging.info(f"Loaded {len(messages)} commit messages")
+    return messages
 
 
-# --- Step 2: Load Embedding Model and Pre-calculate Embeddings ---
-print(f"\nLoading embedding model: {embedding_model_name}...")
-try:
-    embedding_model = SentenceTransformer(embedding_model_name)
-    print("Embedding model loaded successfully.")
-    print("\nCalculating embeddings (this may take a while)...")
-    embeddings = embedding_model.encode(commit_messages, show_progress_bar=True)
-except Exception as e:
-    print(f"An error occurred during embedding model loading or encoding: {e}")
-    exit()
+def calculate_embeddings(model_name, messages):
+    logging.info(f"Loading embedding model: {model_name}")
+    model = SentenceTransformer(model_name)
+    logging.info("Calculating embeddings (this may take a while)...")
+    return model.encode(messages, show_progress_bar=True)
 
-# --- Step 3: Save Embeddings ---
-try:
-    # Ensure the directory for the save file exists if a path is specified
-    save_file_dir = os.path.dirname(save_file_name)
-    if save_file_dir and not os.path.exists(save_file_dir):
-        os.makedirs(save_file_dir)
-        print(f"Created directory: {save_file_dir}")
 
-    np.save(save_file_name, embeddings)
-    print(f"\nEmbeddings successfully saved to {save_file_name}.")
-except Exception as e:
-    print(f"An error occurred while saving embeddings: {e}")
-    exit()
+def save_embeddings(save_path, embeddings):
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    np.save(save_path, embeddings)
+    logging.info(f"Embeddings saved to '{save_path}'")
 
-print("\nProcessing complete.")
+
+# --- Main Pipeline ---
+def main():
+    try:
+        json_path, save_path, model_name = load_config()
+        messages = load_commit_messages(json_path)
+        embeddings = calculate_embeddings(model_name, messages)
+        save_embeddings(save_path, embeddings)
+        logging.info("Processing complete.")
+    except Exception as e:
+        logging.error(f"{e}")
+        exit(1)
+
+
+if __name__ == '__main__':
+    main()
