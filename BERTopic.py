@@ -1,6 +1,7 @@
 import configparser
 import json
 import os
+import sys
 import logging
 
 import numpy as np
@@ -43,22 +44,22 @@ def load_embedding_model(model_name: str) -> SentenceTransformer:
     return SentenceTransformer(model_name)
 
 
-def get_umap_hdbscan_models(use_gpu: bool, min_cluster_size: int):
-    if use_gpu:
+def get_umap_hdbscan_models(min_cluster_size: int):
+    try:
         from cuml.manifold import UMAP as cumlUMAP
         from cuml.cluster import HDBSCAN as cumlHDBSCAN
         logging.info("cuML found. Using GPU for UMAP and HDBSCAN.")
         return (
-            cumlUMAP(n_neighbors=15, n_components=5, min_dist=0.0, random_state=42),
+            cumlUMAP(n_neighbors=15, n_components=2, min_dist=0.1, random_state=42),
             cumlHDBSCAN(min_cluster_size=min_cluster_size, min_samples=1, metric='euclidean',
                         gen_min_span_tree=True, prediction_data=True)
         )
-    else:
+    except:
         from umap import UMAP
         from hdbscan import HDBSCAN
         logging.info("cuML not found. Using CPU for UMAP and HDBSCAN.")
         return (
-            UMAP(n_neighbors=15, n_components=5, min_dist=0.0, metric='cosine', random_state=42),
+            UMAP(n_neighbors=15, n_components=2, min_dist=0.1, metric='cosine', random_state=42),
             HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean',
                     cluster_selection_method='eom', prediction_data=True)
         )
@@ -76,11 +77,17 @@ def save_results(output_dir: str, topic_model: BERTopic, model_name: str, commit
 
 # --- Main ---
 def main():
+    # The first argument is always the script name
+    if len(sys.argv) > 1:
+        print("First argument:", sys.argv[1])
+    else:
+        print("No arguments provided.")
+        exit(1)
     try:
-        config = load_config("config.ini")
+        config = load_config(sys.argv[1])
 
         json_path = config.get('Paths', 'json_file_path')
-        embedding_path = config.get('Paths', 'embeddings_input_path')
+        embedding_path = config.get('Paths', 'embeddings_path')
         output_dir = config.get('Paths', 'results_output_dir')
         model_name = config.get('Models', 'embedding_model_name')
 
@@ -96,7 +103,7 @@ def main():
         logging.info(f"{len(commit_messages)} commit messages and embeddings loaded.")
 
         embedding_model = load_embedding_model(model_name)
-        umap_model, hdbscan_model = get_umap_hdbscan_models(use_gpu=True, min_cluster_size=min_cluster_size)
+        umap_model, hdbscan_model = get_umap_hdbscan_models(min_cluster_size=min_cluster_size)
 
         representation_model = [
             MaximalMarginalRelevance(diversity=mmr_diversity),
@@ -124,6 +131,9 @@ def main():
         logging.info(f"Outliers: {list(topics).count(-1)}")
 
         save_results(output_dir, topic_model, model_name, commit_messages, topics, topic_info)
+        fig = topic_model.visualize_topics()
+        fig.write_html(os.path.join(output_dir, "result.html"))
+
         logging.info("All results saved.")
 
     except Exception as e:

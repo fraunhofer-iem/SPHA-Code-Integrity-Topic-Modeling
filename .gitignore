@@ -1,3 +1,6 @@
 .ropeproject
 *.npy
 venv
+split_output
+.DS_Store
+*results*

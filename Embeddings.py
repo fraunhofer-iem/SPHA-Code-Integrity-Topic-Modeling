@@ -3,6 +3,7 @@ import json
 import numpy as np
 import configparser
 import logging
+import sys
 from sentence_transformers import SentenceTransformer
 
 # --- Setup Logging ---
@@ -21,7 +22,7 @@ def load_config(config_path='config.ini'):
 
     try:
         json_path = config.get('Paths', 'json_file_path')
-        save_path = config.get('Paths', 'save_file_name')
+        save_path = config.get('Paths', 'embeddings_path')
         model_name = config.get('Models', 'embedding_model_name')
     except (configparser.NoSectionError, configparser.NoOptionError) as e:
         raise ValueError(f"Error in config file: {e}")
@@ -53,15 +54,21 @@ def calculate_embeddings(model_name, messages):
 
 
 def save_embeddings(save_path, embeddings):
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    # os.makedirs(os.path.dirname(save_path), exist_ok=True)
     np.save(save_path, embeddings)
     logging.info(f"Embeddings saved to '{save_path}'")
 
 
 # --- Main Pipeline ---
 def main():
+    # The first argument is always the script name
+    if len(sys.argv) > 1:
+        print("First argument:", sys.argv[1])
+    else:
+        print("No arguments provided.")
+        exit(1)
     try:
-        json_path, save_path, model_name = load_config()
+        json_path, save_path, model_name = load_config(sys.argv[1])
         messages = load_commit_messages(json_path)
         embeddings = calculate_embeddings(model_name, messages)
         save_embeddings(save_path, embeddings)
