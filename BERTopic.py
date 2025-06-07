@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import logging
+import joblib
 
 import numpy as np
 import pandas as pd
@@ -86,9 +87,19 @@ def main():
     try:
         config = load_config(sys.argv[1])
 
+        # Paths
+        output_dir = config.get('Paths', 'results_output_dir')
+        os.makedirs(output_dir, exist_ok=True)
+
+        umap_dir = os.path.join(output_dir, config.get('Paths', 'umap_dir'))
+        hdbscan_dir = os.path.join(output_dir, config.get('Paths', 'hdbscan_dir'))
+
+        umap_model_path = os.path.join(umap_dir, "umap_fitted.joblib")
+        hdbscan_model_path = os.path.join(hdbscan_dir, "hdbscan_fitted.joblib")
+
+        logging.info("Loading embeddings...")
         json_path = config.get('Paths', 'json_file_path')
         embedding_path = config.get('Paths', 'embeddings_path')
-        output_dir = config.get('Paths', 'results_output_dir')
         model_name = config.get('Models', 'embedding_model_name')
 
         ngram_lower = config.getint('BERTopicParams', 'ngram_range_lower')
@@ -100,6 +111,10 @@ def main():
 
         commit_messages = load_json_messages(json_path)
         embeddings = load_embeddings(embedding_path)
+
+        umap = joblib.load(umap_model_path)
+        hdbscan = joblib.load(hdbscan_model_path)
+
         logging.info(f"{len(commit_messages)} commit messages and embeddings loaded.")
 
         embedding_model = load_embedding_model(model_name)
@@ -115,8 +130,8 @@ def main():
 
         topic_model = BERTopic(
             vectorizer_model=vectorizer,
-            umap_model=umap_model,
-            hdbscan_model=hdbscan_model,
+            umap_model=umap,
+            hdbscan_model=hdbscan,
             embedding_model=embedding_model,
             representation_model=representation_model,
             ctfidf_model=ctfidf,

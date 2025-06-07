@@ -63,8 +63,12 @@ def main():
         # Paths
         output_dir = config.get('Paths', 'results_output_dir')
         os.makedirs(output_dir, exist_ok=True)
-        umap_model_path = os.path.join(output_dir, "fitted_umap_model.joblib")
-        hdbscan_model_path = os.path.join(output_dir, "fitted_hdbscan_model.joblib")
+
+        umap_dir = os.path.join(output_dir, config.get('Paths', 'umap_dir'))
+        hdbscan_dir = os.path.join(output_dir, config.get('Paths', 'hdbscan_dir'))
+
+        umap_model_path = os.path.join(umap_dir, "umap_fitted.joblib")
+        hdbscan_model_path = os.path.join(hdbscan_dir, "hdbscan_fitted.joblib")
 
         # hdbscan parameters
         min_cluster_size = config.getint('BERTopicParams', 'hdbscan_min_cluster_size')

@@ -70,8 +70,9 @@ def main():
         output_dir = config.get('Paths', 'results_output_dir')
         os.makedirs(output_dir, exist_ok=True)
 
-        umap_model_path = os.path.join(output_dir, "fitted_umap_model.joblib")
-        umap_plot_path = os.path.join(output_dir, "umap_vis.png")
+        umap_dir =  os.path.join(output_dir, config.get('Paths', 'umap_dir'))
+        umap_plot_path = os.path.join(umap_dir, "umap_vis.png")
+        umap_model_path = os.path.join(umap_dir, "umap_fitted.joblib")
 
         # UMAP parameters
         n_neighbors = config.getint('BERTopicParams', 'umap_n_neighbors')
