@@ -6,6 +6,7 @@ import configparser
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
+import time
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -59,6 +60,7 @@ def main():
     parser = argparse.ArgumentParser(description="UMAP projection and visualization pipeline.")
     parser.add_argument("config_path", help="Path to the configuration file.")
     args = parser.parse_args()
+    start_time = time.time()
 
     try:
         config = load_config(args.config_path)
@@ -93,7 +95,8 @@ def main():
             title=f"UMAP (n_neighbors={n_neighbors}, min_dist={min_dist})"
         )
 
-        logging.info("UMAP processing complete. Output saved to '%s'.", output_dir)
+        elapsed_time = time.time() - start_time
+        logging.info("UMAP processing complete in %.2f seconds.", elapsed_time)
 
     except Exception:
         logging.exception("An error occurred during execution.")
