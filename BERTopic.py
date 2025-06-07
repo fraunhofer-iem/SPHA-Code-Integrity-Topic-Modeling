@@ -67,7 +67,7 @@ def get_umap_hdbscan_models(min_cluster_size: int):
 
 def save_results(output_dir: str, topic_model: BERTopic, model_name: str, commit_messages: list[str], topics, topic_info: pd.DataFrame):
     os.makedirs(output_dir, exist_ok=True)
-    topic_model.save(os.path.join(output_dir, "bertopic_model"), serialization="safetensors", save_embedding_model=model_name)
+    topic_model.save(os.path.join(output_dir, "bertopic_model"), serialization="safetensors",save_ctfidf=True, save_embedding_model=model_name)
 
     pd.DataFrame({'Message': commit_messages, 'Topic': topics}).to_csv(os.path.join(output_dir, "commit_topic_assignments.csv"), index=False)
 
