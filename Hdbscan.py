@@ -66,6 +66,7 @@ def main():
 
         umap_dir = os.path.join(output_dir, config.get('Paths', 'umap_dir'))
         hdbscan_dir = os.path.join(output_dir, config.get('Paths', 'hdbscan_dir'))
+        os.makedirs(hdbscan_dir, exist_ok=True)
 
         umap_model_path = os.path.join(umap_dir, "umap_fitted.joblib")
         hdbscan_model_path = os.path.join(hdbscan_dir, "hdbscan_fitted.joblib")

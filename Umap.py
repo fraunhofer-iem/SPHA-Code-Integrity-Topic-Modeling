@@ -71,6 +71,7 @@ def main():
         os.makedirs(output_dir, exist_ok=True)
 
         umap_dir =  os.path.join(output_dir, config.get('Paths', 'umap_dir'))
+        os.makedirs(umap_dir, exist_ok=True)
         umap_plot_path = os.path.join(umap_dir, "umap_vis.png")
         umap_model_path = os.path.join(umap_dir, "umap_fitted.joblib")
 
