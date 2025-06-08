@@ -45,27 +45,6 @@ def load_embedding_model(model_name: str) -> SentenceTransformer:
     return SentenceTransformer(model_name)
 
 
-def get_umap_hdbscan_models(min_cluster_size: int):
-    try:
-        from cuml.manifold import UMAP as cumlUMAP
-        from cuml.cluster import HDBSCAN as cumlHDBSCAN
-        logging.info("cuML found. Using GPU for UMAP and HDBSCAN.")
-        return (
-            cumlUMAP(n_neighbors=15, n_components=2, min_dist=0.1, random_state=42),
-            cumlHDBSCAN(min_cluster_size=min_cluster_size, min_samples=1, metric='euclidean',
-                        gen_min_span_tree=True, prediction_data=True)
-        )
-    except:
-        from umap import UMAP
-        from hdbscan import HDBSCAN
-        logging.info("cuML not found. Using CPU for UMAP and HDBSCAN.")
-        return (
-            UMAP(n_neighbors=15, n_components=2, min_dist=0.1, metric='cosine', random_state=42),
-            HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean',
-                    cluster_selection_method='eom', prediction_data=True)
-        )
-
-
 def save_results(output_dir: str, topic_model: BERTopic, model_name: str, commit_messages: list[str], topics, topic_info: pd.DataFrame):
     os.makedirs(output_dir, exist_ok=True)
     topic_model.save(os.path.join(output_dir, "bertopic_model"), serialization="safetensors",save_ctfidf=True, save_embedding_model=model_name)
@@ -99,18 +78,15 @@ def main():
 
         logging.info("Loading embeddings...")
         json_path = config.get('Paths', 'json_file_path')
-        embedding_path = config.get('Paths', 'embeddings_path')
         model_name = config.get('Models', 'embedding_model_name')
 
         ngram_lower = config.getint('BERTopicParams', 'ngram_range_lower')
         ngram_upper = config.getint('BERTopicParams', 'ngram_range_upper')
         mmr_diversity = config.getfloat('BERTopicParams', 'mmr_diversity')
-        min_cluster_size = config.getint('BERTopicParams', 'hdbscan_min_cluster_size')
 
         logging.info("Configuration loaded.")
 
         commit_messages = load_json_messages(json_path)
-        embeddings = load_embeddings(embedding_path)
 
         umap = joblib.load(umap_model_path)
         hdbscan = joblib.load(hdbscan_model_path)
@@ -118,7 +94,6 @@ def main():
         logging.info(f"{len(commit_messages)} commit messages and embeddings loaded.")
 
         embedding_model = load_embedding_model(model_name)
-        umap_model, hdbscan_model = get_umap_hdbscan_models(min_cluster_size=min_cluster_size)
 
         representation_model = [
             MaximalMarginalRelevance(diversity=mmr_diversity),
@@ -130,16 +105,15 @@ def main():
 
         topic_model = BERTopic(
             vectorizer_model=vectorizer,
-            umap_model=umap,
+            umap_model=None,
             hdbscan_model=hdbscan,
             embedding_model=embedding_model,
             representation_model=representation_model,
             ctfidf_model=ctfidf,
-            nr_topics="auto",
             verbose=True
         )
 
-        topics, _ = topic_model.fit_transform(commit_messages, embeddings)
+        topics, _ = topic_model.fit_transform(commit_messages, umap)
         topic_info = topic_model.get_topic_info()
 
         logging.info(f"Discovered {len(topic_model.get_topics())} topics (including outliers).")
